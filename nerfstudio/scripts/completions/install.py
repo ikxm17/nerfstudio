@@ -86,7 +86,7 @@ def _check_tyro_cli(script_path: pathlib.Path) -> bool:
 
 def _generate_completion(
     path_or_entrypoint: Union[pathlib.Path, str], shell: ShellType, completions_dir: pathlib.Path
-) -> pathlib.Path:
+) -> Optional[pathlib.Path]:
     """Given a path to a tyro CLI, write a completion script to a target directory.
 
     Args:
@@ -125,7 +125,7 @@ def _generate_completion(
             CONSOLE.log(e.stdout)
         if e.stderr is not None and len(e.stderr) > 0:
             CONSOLE.log(e.stderr)
-        raise e
+        return None
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
     if not target_path.exists():
@@ -320,7 +320,7 @@ def _generate_completions_files(
     # Run generation jobs.
     concurrent_executor = concurrent.futures.ThreadPoolExecutor()
     with CONSOLE.status("[bold]:writing_hand:  Generating completions...", spinner="bouncingBall"):
-        completion_paths = list(
+        all_results = list(
             concurrent_executor.map(
                 lambda path_or_entrypoint_and_shell: _generate_completion(
                     path_or_entrypoint_and_shell[0], path_or_entrypoint_and_shell[1], completions_dir
@@ -328,6 +328,7 @@ def _generate_completions_files(
                 itertools.product(script_paths + entry_points, shells_found),
             )
         )
+        completion_paths = [p for p in all_results if p is not None]
 
     # Delete obsolete completion files.
     for unexpected_path in set(p.absolute() for p in existing_completions) - set(

@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
-import open3d as o3d
 import torch
 import tyro
 from typing_extensions import Annotated, Literal
@@ -38,11 +37,6 @@ from nerfstudio.cameras.rays import RayBundle
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManager
 from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManager
 from nerfstudio.data.scene_box import OrientedBox
-from nerfstudio.exporter import texture_utils, tsdf_utils
-from nerfstudio.exporter.exporter_utils import collect_camera_poses, generate_point_cloud, get_mesh_from_filename
-from nerfstudio.exporter.marching_cubes import generate_mesh_with_multires_marching_cubes
-from nerfstudio.fields.sdf_field import SDFField  # noqa
-from nerfstudio.models.splatfacto import SplatfactoModel
 from nerfstudio.pipelines.base_pipeline import Pipeline, VanillaPipeline
 from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.rich_utils import CONSOLE
@@ -128,6 +122,8 @@ class ExportPointCloud(Exporter):
 
     def main(self) -> None:
         """Export point cloud."""
+        import open3d as o3d
+        from nerfstudio.exporter.exporter_utils import generate_point_cloud
 
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
@@ -226,6 +222,8 @@ class ExportTSDFMesh(Exporter):
 
     def main(self) -> None:
         """Export mesh"""
+        from nerfstudio.exporter import texture_utils, tsdf_utils
+        from nerfstudio.exporter.exporter_utils import get_mesh_from_filename
 
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
@@ -311,6 +309,9 @@ class ExportPoissonMesh(Exporter):
 
     def main(self) -> None:
         """Export mesh"""
+        import open3d as o3d
+        from nerfstudio.exporter import texture_utils
+        from nerfstudio.exporter.exporter_utils import generate_point_cloud, get_mesh_from_filename
 
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
@@ -411,6 +412,11 @@ class ExportMarchingCubesMesh(Exporter):
 
     def main(self) -> None:
         """Main function."""
+        from nerfstudio.exporter import texture_utils
+        from nerfstudio.exporter.exporter_utils import get_mesh_from_filename
+        from nerfstudio.exporter.marching_cubes import generate_mesh_with_multires_marching_cubes
+        from nerfstudio.fields.sdf_field import SDFField
+
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
 
@@ -460,6 +466,8 @@ class ExportCameraPoses(Exporter):
 
     def main(self) -> None:
         """Export camera poses"""
+        from nerfstudio.exporter.exporter_utils import collect_camera_poses
+
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
 
@@ -555,6 +563,8 @@ class ExportGaussianSplat(Exporter):
                         ply_file.write(value.tobytes())
 
     def main(self) -> None:
+        from nerfstudio.models.splatfacto import SplatfactoModel
+
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True)
 
