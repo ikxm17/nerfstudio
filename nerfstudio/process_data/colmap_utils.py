@@ -144,7 +144,7 @@ def run_colmap(
     ]
     if colmap_version < Version("3.9"):
         feature_matcher_cmd.append(f"--SiftMatching.use_gpu {int(gpu)}")
-    if matching_method == "vocab_tree":
+    if matching_method == "vocab_tree" and colmap_version < Version("3.11"):
         vocab_tree_filename = get_vocab_tree()
         feature_matcher_cmd.append(f'--VocabTreeMatching.vocab_tree_path "{vocab_tree_filename}"')
     feature_matcher_cmd = " ".join(feature_matcher_cmd)
