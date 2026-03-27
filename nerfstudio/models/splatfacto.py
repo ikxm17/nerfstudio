@@ -130,6 +130,10 @@ class SplatfactoModelConfig(ModelConfig):
     """stop splitting at this step"""
     sh_degree: int = 3
     """maximum degree of spherical harmonics to use"""
+    color_activation: Literal["sigmoid", "linear"] = "sigmoid"
+    """Activation function for colors when sh_degree=0. 'sigmoid' maps logits to [0,1] (default splatfacto behavior).
+    'linear' stores colors directly in [0,1] with clamping (matches original 3DGS). Linear avoids gradient vanishing
+    at extreme color values, which matters for underwater decomposition models."""
     use_scale_regularization: bool = False
     """If enabled, a scale regularization introduced in PhysGauss (https://xpandora.github.io/PhysGaussian/) is used for reducing huge spikey gaussians."""
     max_gauss_ratio: float = 10.0
@@ -210,8 +214,12 @@ class SplatfactoModel(Model):
                 shs[:, 0, :3] = RGB2SH(self.seed_points[1] / 255)
                 shs[:, 1:, 3:] = 0.0
             else:
-                CONSOLE.log("use color only optimization with sigmoid activation")
-                shs[:, 0, :3] = torch.logit(self.seed_points[1] / 255, eps=1e-10)
+                if self.config.color_activation == "sigmoid":
+                    CONSOLE.log("use color only optimization with sigmoid activation")
+                    shs[:, 0, :3] = torch.logit(self.seed_points[1] / 255, eps=1e-10)
+                else:
+                    CONSOLE.log("use color only optimization with linear activation")
+                    shs[:, 0, :3] = (self.seed_points[1] / 255).clamp(1e-5, 1 - 1e-5)
             features_dc = torch.nn.Parameter(shs[:, 0, :])
             features_rest = torch.nn.Parameter(shs[:, 1:, :])
         else:
@@ -298,6 +306,8 @@ class SplatfactoModel(Model):
     def colors(self):
         if self.config.sh_degree > 0:
             return SH2RGB(self.features_dc)
+        elif self.config.color_activation == "linear":
+            return torch.clamp(self.features_dc, 0.0, 1.0)
         else:
             return torch.sigmoid(self.features_dc)
 
@@ -305,6 +315,8 @@ class SplatfactoModel(Model):
     def shs_0(self):
         if self.config.sh_degree > 0:
             return self.features_dc
+        elif self.config.color_activation == "linear":
+            return RGB2SH(torch.clamp(self.features_dc, 0.0, 1.0))
         else:
             return RGB2SH(torch.sigmoid(self.features_dc))
 
@@ -549,7 +561,10 @@ class SplatfactoModel(Model):
         if self.config.sh_degree > 0:
             sh_degree_to_use = min(self.step // self.config.sh_degree_interval, self.config.sh_degree)
         else:
-            colors_crop = torch.sigmoid(colors_crop).squeeze(1)  # [N, 1, 3] -> [N, 3]
+            if self.config.color_activation == "linear":
+                colors_crop = torch.clamp(colors_crop, 0.0, 1.0).squeeze(1)  # [N, 1, 3] -> [N, 3]
+            else:
+                colors_crop = torch.sigmoid(colors_crop).squeeze(1)  # [N, 1, 3] -> [N, 3]
             sh_degree_to_use = None
 
         render, alpha, self.info = rasterization(  # type: ignore[reportPossiblyUnboundVariable]
